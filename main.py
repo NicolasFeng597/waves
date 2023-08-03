@@ -1,10 +1,12 @@
 import matplotlib.pyplot as plt
-from waves import waves
+from formats import Sinusoid
+from formats import Recording
 
-a440 = waves(5, 44100, 440)
-star_wars = waves(path="StarWars3.wav")
-# print(star_wars)
-# waves.plot_wave(star_wars, start = 50000, stop = 50500)
-waves.plot_ft(a440)
-waves.plot_ft(star_wars)
+sine = Sinusoid(5, 44100, 1)
+starwars = Recording('StarWars3.wav', True)
+print(starwars)
+sinef = sine.fourier_transform()
+starf = starwars.fourier_transform()
+plt.plot(starf[0], starf[1])
+
 plt.show()
