@@ -21,14 +21,17 @@ class Sinusoid(wavebuilder): #periodic
 class Recording(wavebuilder): #non-periodic
   def __init__(self, path, normalize):
     self.path = path
-    data = scipy_read(path)
+    data = list(scipy_read(path))
     self.sample_rate = data[0]
     self.time = len(data[1]) / data[0]
     self.normalize = normalize
-    self.value = [np.linspace(0, self.time, len(data[1]), endpoint=False), np.array(data[1])]
+    if data[1].shape[1] > 1:
+      data[1] = np.array(data[1])[:, 0]
+      print("Multi-channel audio isn't supported - first channel will be used")
+    self.value = [np.linspace(0, self.time, len(data[1]), endpoint=False), data[1]]
     
     if normalize:
-      self.value[1] = self.value[1] / max(self.value[1])
+      self.value[1] = self.value[1] / np.max(self.value[1])
         
   def __str__(self):
     return 'Time: ' + str(self.time) + ', Sample Rate: ' + str(self.sample_rate) + ', Path: ' + str(self.path) + ', Normalized: ' + str(self.normalize)

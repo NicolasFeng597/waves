@@ -2,6 +2,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.fft import rfft, rfftfreq
 from math import ceil
+
+#storing image files, exporting into video
+from io import BytesIO
+from cv2 import VideoWriter
+import os
+from PIL import Image
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+
 #TODO: have wave and fourier in the same plot, update every 1/2 second or so, have a line that indicates where the fourier is analyzing
 #TODO: combine both wav and sinusoid into new class Composite?
 
@@ -56,13 +64,6 @@ class wavebuilder:
   
     plt.show()
 
-  #plots fourier transform
-  def plot_ft(self, start=0, stop=-1, format="sample"):
-    data = self.__fourier_transform(start, stop, format)
-    print(len(data[0]))
-    plt.plot(data[0], data[1])
-    plt.show()
-  
   #calculates right fourier transform
   def __fourier_transform(self, start=0, stop=-1, format="sample"): #sample count is preferably 2^x (1024, 2048, etc.)
     if stop == -1 and format == "sample":
@@ -77,6 +78,43 @@ class wavebuilder:
       yf = rfft(self.value[1][start:stop])
       xf = rfftfreq(stop - start, 1 / self.sample_rate)
       return [xf, np.abs(yf)]
+    
+  #plots fourier transform
+  def plot_ft(self, start=0, stop=-1, format="sample"):
+    data = self.__fourier_transform(start, stop, format)
+    plt.plot(data[0], data[1])
+    plt.show()
   
-  def dynamic_ft(self):
-    pass
+  #plays a video of a sliding-window fourier transform
+  def dynamic_ft(self, window_size=2048, format="sample"):
+    if format == "second":
+      window_size *= self.sample_rate
+    
+    transforms = []
+    max_value = -1
+    for i in range(ceil(len(self) / window_size)):
+      transforms.append(self.__fourier_transform(start=window_size*i, stop=min((i + 1) * window_size, len(self))))
+      max_value = max(np.max(transforms[i][1]), max_value)
+    
+    for i in range(len(transforms)):
+      transforms[i][1] /= max_value
+
+    try:
+      os.mkdir("temp_images")
+    except FileExistsError:
+      for file in os.listdir("temp_images"):
+        os.remove(file)
+        
+    fig, ax = plt.subplots()      
+    for i in range(len(transforms)):
+      plt.plot(transforms[i][0], transforms[i][1], color="blue")
+      plt.text(0.5, 1.01, f"time: {round(i * window_size / self.sample_rate, 2)}s", horizontalalignment='center', verticalalignment='bottom', transform=ax.transAxes)
+      
+      current_image = BytesIO()
+      FigureCanvasAgg(fig).print_png(current_image)
+      current_image = Image.open(current_image)
+      fig.clear()
+      
+      current_image.save(f"temp_images/image{i}.png")
+      
+      

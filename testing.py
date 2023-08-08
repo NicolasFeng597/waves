@@ -1,21 +1,14 @@
+import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib import pyplot as plt
-from scipy.fft import fft, fftfreq
+import matplotlib.animation as animation
+fig, ax = plt.subplots()
+ims=[]
 
-def generate_sine_wave(freq, sample_rate, duration):
-    x = np.linspace(0, duration, sample_rate * duration, endpoint=False)
-    frequencies = x * freq
-    # 2pi because np.sin takes radians
-    y = np.sin((2 * np.pi) * frequencies)
-    return x, y
+for i in range(4):
+    ttl = plt.text(0.5, 1.01, i, horizontalalignment='center', verticalalignment='bottom', transform=ax.transAxes)
+    ims.append([plt.plot(np.random.randint(0,10,5), np.random.randint(0,20,5)), ttl])
+    #plt.cla()
 
-x, y = generate_sine_wave(1000, 44100, 5)
-# plt.plot(x, y)
-# plt.show()
 
-# Number of samples in normalized_tone
-
-yf = fft(y)
-xf = fftfreq(44100*5, 1 / 44100)
-plt.plot([xf, np.abs(yf)])
+ani = animation.ArtistAnimation(fig, ims, interval=500, blit=False)
 plt.show()
