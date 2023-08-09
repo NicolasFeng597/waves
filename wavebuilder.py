@@ -5,13 +5,15 @@ from math import ceil
 
 #storing image files, exporting into video
 from io import BytesIO
-from cv2 import VideoWriter
+import cv2
 import os
 from PIL import Image
 from matplotlib.backends.backend_agg import FigureCanvasAgg
+from moviepy.editor import VideoFileClip, AudioFileClip
 
 #TODO: have wave and fourier in the same plot, update every 1/2 second or so, have a line that indicates where the fourier is analyzing
 #TODO: combine both wav and sinusoid into new class Composite?
+#TODO: note identification within fourier
 
 #parent class: WaveBuilder - you can choose to generate waves/import from there in subclasses
 class wavebuilder:
@@ -19,9 +21,9 @@ class wavebuilder:
   def mix(self, *waves):
     for i in waves:
       if not issubclass(i.__class__, wavebuilder):
-        raise ValueError("must inherit wavebuilder")
+        raise ValueError('must inherit wavebuilder')
       if i.__class__ != self.__class__:
-        raise NotImplementedError("Sinusoid and Recording addition not yet implemented")
+        raise NotImplementedError('Sinusoid and Recording addition not yet implemented')
       
     waves = list(waves)
     waves.insert(0, self)
@@ -31,7 +33,7 @@ class wavebuilder:
       if i.sample_rate != self.sample_rate:
         raise ValueError('Sample rates don\'t match')
       if not issubclass(i.__class__, wavebuilder):
-        raise ValueError("waves must inherit wavebuilder")
+        raise ValueError('waves must inherit wavebuilder')
       
       if i.time > waves[maxtime_index].time:
         maxtime_index = current_index
@@ -50,13 +52,13 @@ class wavebuilder:
       self.path = [i.path for i in waves]
   
   #plots waves
-  def plot(self, start=0, stop=-1, format="sample"):
-    if stop == -1 and format == "sample":
+  def plot(self, start=0, stop=-1, format='sample'):
+    if stop == -1 and format == 'sample':
       stop = len(self)
-    elif stop == -1 and format == "second":
+    elif stop == -1 and format == 'second':
       stop = self.time
       
-    if format == "second":
+    if format == 'second':
       plt.plot(self.value[0][start * self.sample_rate:stop * self.sample_rate], 
                 self.value[1][start * self.sample_rate:stop * self.sample_rate])
     else:
@@ -65,12 +67,12 @@ class wavebuilder:
     plt.show()
 
   #calculates right fourier transform
-  def __fourier_transform(self, start=0, stop=-1, format="sample"): #sample count is preferably 2^x (1024, 2048, etc.)
-    if stop == -1 and format == "sample":
+  def __fourier_transform(self, start=0, stop=-1, format='sample'): #sample count is preferably 2^x (1024, 2048, etc.)
+    if stop == -1 and format == 'sample':
       stop = len(self)
-    elif stop == -1 and format == "second":
+    elif stop == -1 and format == 'second':
       stop = self.time
-    if format == "second":
+    if format == 'second':
       yf = rfft(self.value[1][start * self.sample_rate:stop * self.sample_rate])
       xf = rfftfreq(stop * self.sample_rate - start * self.sample_rate, 1 / self.sample_rate)
       return [xf, np.abs(yf)]
@@ -80,41 +82,74 @@ class wavebuilder:
       return [xf, np.abs(yf)]
     
   #plots fourier transform
-  def plot_ft(self, start=0, stop=-1, format="sample"):
+  def plot_ft(self, start=0, stop=-1, format='sample'):
     data = self.__fourier_transform(start, stop, format)
     plt.plot(data[0], data[1])
     plt.show()
   
   #plays a video of a sliding-window fourier transform
-  def dynamic_ft(self, window_size=2048, format="sample"):
-    if format == "second":
+  def dynamic_ft(self, window_size=2048, format='sample', rewrite=True, preview=False, destroy=False):
+    if format == 'second':
       window_size *= self.sample_rate
     
+    #calculating transforms
     transforms = []
     max_value = -1
     for i in range(ceil(len(self) / window_size)):
       transforms.append(self.__fourier_transform(start=window_size*i, stop=min((i + 1) * window_size, len(self))))
       max_value = max(np.max(transforms[i][1]), max_value)
     
+    #normalizing
     for i in range(len(transforms)):
       transforms[i][1] /= max_value
 
+    #adding dir and overriding existing images (if rewrite = True)
     try:
-      os.mkdir("temp_images")
+      os.mkdir('temp_images')
     except FileExistsError:
-      for file in os.listdir("temp_images"):
-        os.remove(file)
+      if rewrite:
+        for file in os.listdir('temp_images'):
+          os.remove('temp_images/' + file)
+    
+    #plotting and saving images
+    fig, ax = plt.subplots()
+    if rewrite:
+      for i in range(len(transforms)):
+        plt.ylim(0, 1)
+        plt.plot(transforms[i][0], transforms[i][1], color='blue')
+        plt.text(0.5, 1.01, f'time: {round(i * window_size / self.sample_rate, 2)}s', horizontalalignment='center', verticalalignment='bottom', transform=ax.transAxes)
         
-    fig, ax = plt.subplots()      
+        current_image = BytesIO()
+        canvas = FigureCanvasAgg(fig)
+        canvas.print_png(current_image)
+        current_image = Image.open(current_image)
+        fig.clear()
+        current_image.save(f'temp_images/image{i}.png')
+        current_image.close()
+    
+    #video preview
+    if preview:
+      for i in range(len(transforms)):
+        abn = cv2.imread(f'temp_images/image{i}.png')
+        cv2.imshow("window", abn)
+        cv2.waitKey(int((window_size / self.sample_rate) * 1000))
+    
+    #building video
+    video = cv2.VideoWriter('temp_images/temp_video.mp4', cv2.VideoWriter_fourcc(*'mp4v'), self.sample_rate / window_size,
+                            Image.open('temp_images/image0.png').size)
     for i in range(len(transforms)):
-      plt.plot(transforms[i][0], transforms[i][1], color="blue")
-      plt.text(0.5, 1.01, f"time: {round(i * window_size / self.sample_rate, 2)}s", horizontalalignment='center', verticalalignment='bottom', transform=ax.transAxes)
+      video.write(cv2.imread(f'temp_images/image{i}.png'))
+    video.release()
+    
+    video_clip = VideoFileClip('temp_images/temp_video.mp4')
+    audio_clip = AudioFileClip(self.path)
+    video_clip = video_clip.set_audio(audio_clip)
+    video_clip.write_videofile('temp_images/temp_video2.mp4')
+    video_clip.close()
+    audio_clip.close()
       
-      current_image = BytesIO()
-      FigureCanvasAgg(fig).print_png(current_image)
-      current_image = Image.open(current_image)
-      fig.clear()
-      
-      current_image.save(f"temp_images/image{i}.png")
-      
-      
+    #destroy temp files
+    if destroy:
+      for file in os.listdir('temp_images'):
+        os.remove('temp_images/' + file)
+      os.rmdir('temp_images')
