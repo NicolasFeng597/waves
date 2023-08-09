@@ -25,9 +25,9 @@ class Recording(wavebuilder): #non-periodic
     self.sample_rate = data[0]
     self.time = len(data[1]) / data[0]
     self.normalize = normalize
-    if data[1].shape[1] > 1:
+    if data[1].ndim > 1:
       data[1] = np.array(data[1])[:, 0]
-      print("Multi-channel audio isn't supported - first channel will be used")
+      print("Recording: Multi-channel audio isn't supported - first channel will be used")
     self.value = [np.linspace(0, self.time, len(data[1]), endpoint=False), data[1]]
     
     if normalize:
