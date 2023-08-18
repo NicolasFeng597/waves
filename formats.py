@@ -7,11 +7,13 @@ class Sinusoid(wavebuilder): #periodic
       self.time = time
       self.sample_rate = sample_rate
       self.frequency = frequency
+      self.type = 'Sinusoid'
       
       #building sinusoid, result is put into (time, position) 2darray called value
       times = np.linspace(0, time, sample_rate * time, endpoint=False)
       self.value = [times, np.sin(times * frequency * 2 * np.pi)] #converts frequency values into ascending rads before taking the sine
       
+      print("Sinusoid finished initialization")      
     def __str__(self):
       return 'Time: ' + str(self.time) + ', Sample Rate: ' + str(self.sample_rate) + ', Frequency(s): ' + str(self.frequency) + ', Normalized: ' + str(self.normalize)
     
@@ -21,6 +23,7 @@ class Sinusoid(wavebuilder): #periodic
 class Recording(wavebuilder): #non-periodic
   def __init__(self, path, normalize):
     self.path = path
+    self.type = 'Recording'
     data = list(scipy_read(path))
     self.sample_rate = data[0]
     self.time = len(data[1]) / data[0]
@@ -32,6 +35,8 @@ class Recording(wavebuilder): #non-periodic
     
     if normalize:
       self.value[1] = self.value[1] / np.max(self.value[1])
+      
+    print("Recording finished initialization")
         
   def __str__(self):
     return 'Time: ' + str(self.time) + ', Sample Rate: ' + str(self.sample_rate) + ', Path: ' + str(self.path) + ', Normalized: ' + str(self.normalize)

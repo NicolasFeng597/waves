@@ -1,7 +1,10 @@
+#most recent change: git havoc, finished fft and looking into harmonics and note identification
+
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.fft import rfft, rfftfreq
 from math import ceil
+import wavio
 
 #storing image files, exporting into video
 from io import BytesIO
@@ -88,7 +91,7 @@ class wavebuilder:
     plt.show()
   
   #plays a video of a sliding-window fourier transform
-  def dynamic_ft(self, window_size=2048, format='sample', rewrite=True, preview=False, destroy=False):
+  def dynamic_ft(self, window_size=2048, format='sample', rewrite=True, preview=False, destroy_temp=True, progress=False):
     if format == 'second':
       window_size *= self.sample_rate
     
@@ -96,7 +99,9 @@ class wavebuilder:
     transforms = []
     max_value = -1
     for i in range(ceil(len(self) / window_size)):
-      transforms.append(self.__fourier_transform(start=window_size*i, stop=min((i + 1) * window_size, len(self))))
+      fourier = self.__fourier_transform(start=window_size*i, stop=min((i + 1) * window_size, len(self)))
+      print(fourier)
+      transforms.append(fourier)
       max_value = max(np.max(transforms[i][1]), max_value)
     
     #normalizing
@@ -115,6 +120,8 @@ class wavebuilder:
     fig, ax = plt.subplots()
     if rewrite:
       for i in range(len(transforms)):
+        if progress and i % 50 == 0:
+          print(f"WaveBuilder - Writing image {i} out of {len(transforms)}")
         plt.ylim(0, 1)
         plt.plot(transforms[i][0], transforms[i][1], color='blue')
         plt.text(0.5, 1.01, f'time: {round(i * window_size / self.sample_rate, 2)}s', horizontalalignment='center', verticalalignment='bottom', transform=ax.transAxes)
@@ -126,6 +133,7 @@ class wavebuilder:
         fig.clear()
         current_image.save(f'temp_images/image{i}.png')
         current_image.close()
+      print("WaveBuilder - Finished writing images")
     
     #video preview
     if preview:
@@ -137,19 +145,27 @@ class wavebuilder:
     #building video
     video = cv2.VideoWriter('temp_images/temp_video.mp4', cv2.VideoWriter_fourcc(*'mp4v'), self.sample_rate / window_size,
                             Image.open('temp_images/image0.png').size)
+    if progress:
+      print("WaveBuilder - Building video")
     for i in range(len(transforms)):
       video.write(cv2.imread(f'temp_images/image{i}.png'))
+      
     video.release()
     
     video_clip = VideoFileClip('temp_images/temp_video.mp4')
-    audio_clip = AudioFileClip(self.path)
+    if self.type == "Sinusoid":
+      wavio.write('temp_images/temp_audio.wav', self.value[1], self.sample_rate, sampwidth=2)
+      audio_clip = AudioFileClip('temp_images/temp_audio.wav')
+    else:
+      audio_clip = AudioFileClip(self.path)
+      
     video_clip = video_clip.set_audio(audio_clip)
-    video_clip.write_videofile('temp_images/temp_video2.mp4')
+    video_clip.write_videofile('Final Video.mp4')
     video_clip.close()
     audio_clip.close()
       
     #destroy temp files
-    if destroy:
-      for file in os.listdir('temp_images'):
-        os.remove('temp_images/' + file)
-      os.rmdir('temp_images')
+    if destroy_temp:
+      for i in range(len(transforms)):
+        os.remove(f'temp_images/image{i}.png')
+      os.remove("temp_images/temp_video.mp4")
