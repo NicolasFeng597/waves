@@ -8,7 +8,7 @@ import wavio
 
 #storing image files, exporting into video
 from io import BytesIO
-import cv2
+import cv2 as cv
 import os
 from PIL import Image
 from matplotlib.backends.backend_agg import FigureCanvasAgg
@@ -138,17 +138,17 @@ class wavebuilder:
     #video preview
     if preview:
       for i in range(len(transforms)):
-        abn = cv2.imread(f'temp_images/image{i}.png')
-        cv2.imshow("window", abn)
-        cv2.waitKey(int((window_size / self.sample_rate) * 1000))
+        abn = cv.imread(f'temp_images/image{i}.png')
+        cv.imshow("window", abn)
+        cv.waitKey(int((window_size / self.sample_rate) * 1000))
     
     #building video
-    video = cv2.VideoWriter('temp_images/temp_video.mp4', cv2.VideoWriter_fourcc(*'mp4v'), self.sample_rate / window_size,
+    video = cv.VideoWriter('temp_images/temp_video.mp4', cv.VideoWriter_fourcc(*'mp4v'), self.sample_rate / window_size,
                             Image.open('temp_images/image0.png').size)
     if progress:
       print("WaveBuilder - Building video")
     for i in range(len(transforms)):
-      video.write(cv2.imread(f'temp_images/image{i}.png'))
+      video.write(cv.imread(f'temp_images/image{i}.png'))
       
     video.release()
     
