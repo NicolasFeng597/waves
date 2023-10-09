@@ -15,7 +15,7 @@ class Sinusoid(wavebuilder): #periodic
       
       print("Sinusoid finished initialization")      
     def __str__(self):
-      return 'Time: ' + str(self.time) + ', Sample Rate: ' + str(self.sample_rate) + ', Frequency(s): ' + str(self.frequency) + ', Normalized: ' + str(self.normalize)
+      return 'Time: ' + str(self.time) + ', Sample Rate: ' + str(self.sample_rate) + ', Frequency(s): ' + str(self.frequency)
     
     def __len__(self):
       return int(self.time * self.sample_rate)

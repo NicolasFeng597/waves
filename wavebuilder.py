@@ -82,6 +82,7 @@ class wavebuilder:
     else:
       yf = rfft(self.value[1][start:stop])
       xf = rfftfreq(stop - start, 1 / self.sample_rate)
+      print(len(xf))
       return [xf, np.abs(yf)]
     
   #plots fourier transform
@@ -91,7 +92,7 @@ class wavebuilder:
     plt.show()
   
   #plays a video of a sliding-window fourier transform
-  def dynamic_ft(self, window_size=2048, format='sample', rewrite=True, preview=False, destroy_temp=True, progress=False):
+  def dynamic_ft(self, window_size=2048, format='sample', rewrite=True, show_preview=False, destroy_temp=True, show_progress=False, save_sample=None):
     if format == 'second':
       window_size *= self.sample_rate
     
@@ -100,7 +101,6 @@ class wavebuilder:
     max_value = -1
     for i in range(ceil(len(self) / window_size)):
       fourier = self.__fourier_transform(start=window_size*i, stop=min((i + 1) * window_size, len(self)))
-      print(fourier)
       transforms.append(fourier)
       max_value = max(np.max(transforms[i][1]), max_value)
     
@@ -110,17 +110,25 @@ class wavebuilder:
 
     #adding dir and overriding existing images (if rewrite = True)
     try:
-      os.mkdir('temp_images')
+      if save_sample is None:
+        os.mkdir('temp_images')
+      else:
+        os.mkdir('audio samples data/' + save_sample)
+        os.mkdir('audio samples data/' + save_sample + '/images')
     except FileExistsError:
       if rewrite:
-        for file in os.listdir('temp_images'):
-          os.remove('temp_images/' + file)
+        if save_sample is None:
+          for file in os.listdir('temp_images'):
+            os.remove('temp_images/' + file)
+        else:
+          for file in os.listdir('audio samples data/' + save_sample + '/images'):
+            os.remove('audio samples data/' + save_sample + '/images/' + file)
     
     #plotting and saving images
     fig, ax = plt.subplots()
     if rewrite:
       for i in range(len(transforms)):
-        if progress and i % 50 == 0:
+        if show_progress and i % 50 == 0:
           print(f"WaveBuilder - Writing image {i} out of {len(transforms)}")
         plt.ylim(0, 1)
         plt.plot(transforms[i][0], transforms[i][1], color='blue')
@@ -131,41 +139,62 @@ class wavebuilder:
         canvas.print_png(current_image)
         current_image = Image.open(current_image)
         fig.clear()
-        current_image.save(f'temp_images/image{i}.png')
+        if save_sample is None:
+          current_image.save(f'temp_images/image{i}.png')
+        else:
+          current_image.save(f'audio samples data/{save_sample}/images/image{i}.png')
         current_image.close()
+        
       print("WaveBuilder - Finished writing images")
     
     #video preview
-    if preview:
+    if show_preview:
       for i in range(len(transforms)):
-        abn = cv.imread(f'temp_images/image{i}.png')
+        if save_sample is None:
+          abn = cv.imread(f'temp_images/image{i}.png')
+        else:
+          abn = cv.imread(f'audio samples data/{save_sample}/images/image{i}.png')
         cv.imshow("window", abn)
         cv.waitKey(int((window_size / self.sample_rate) * 1000))
     
     #building video
-    video = cv.VideoWriter('temp_images/temp_video.mp4', cv.VideoWriter_fourcc(*'mp4v'), self.sample_rate / window_size,
-                            Image.open('temp_images/image0.png').size)
-    if progress:
+    if save_sample is None:
+      video = cv.VideoWriter('temp_images/temp_video.mp4', cv.VideoWriter_fourcc(*'mp4v'), self.sample_rate / window_size,
+                              Image.open('temp_images/image0.png').size)
+    else:
+      video = cv.VideoWriter(f'audio samples data/{save_sample}/{save_sample}.mp4', cv.VideoWriter_fourcc(*'mp4v'), self.sample_rate / window_size,
+                              Image.open(f'audio samples data/{save_sample}/images/image0.png').size)
+    if show_progress:
       print("WaveBuilder - Building video")
-    for i in range(len(transforms)):
-      video.write(cv.imread(f'temp_images/image{i}.png'))
+    if save_sample is None:
+      for i in range(len(transforms)):
+        video.write(cv.imread(f'temp_images/image{i}.png'))
+    else:
+      for i in range(len(transforms)):
+        video.write(cv.imread(f'audio samples data/{save_sample}/images/image{i}.png'))
       
     video.release()
     
-    video_clip = VideoFileClip('temp_images/temp_video.mp4')
-    if self.type == "Sinusoid":
-      wavio.write('temp_images/temp_audio.wav', self.value[1], self.sample_rate, sampwidth=2)
-      audio_clip = AudioFileClip('temp_images/temp_audio.wav')
-    else:
-      audio_clip = AudioFileClip(self.path)
+    if save_sample is None:
+      video_clip = VideoFileClip('temp_images/temp_video.mp4')
+      if self.type == "Sinusoid":
+        wavio.write('temp_images/temp_audio.wav', self.value[1], self.sample_rate, sampwidth=2)
+        audio_clip = AudioFileClip('temp_images/temp_audio.wav')
+      else:
+        audio_clip = AudioFileClip(self.path)
       
-    video_clip = video_clip.set_audio(audio_clip)
-    video_clip.write_videofile('Final Video.mp4')
+      video_clip = video_clip.set_audio(audio_clip)
+      video_clip.write_videofile('Current Video.mp4')
+    else: #samples are all .wav
+      video_clip = VideoFileClip(f'audio samples data/{save_sample}/{save_sample}.mp4')
+      audio_clip = AudioFileClip(f'audio samples/{save_sample}.wav')
+      video_clip = video_clip.set_audio(audio_clip)
+      video_clip.write_videofile(f'audio samples data/{save_sample}/{save_sample}.mp4')
     video_clip.close()
     audio_clip.close()
       
     #destroy temp files
-    if destroy_temp:
+    if save_sample is None and destroy_temp:
       for i in range(len(transforms)):
         os.remove(f'temp_images/image{i}.png')
       os.remove("temp_images/temp_video.mp4")
