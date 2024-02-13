@@ -3,17 +3,7 @@
 
 from formats import Sinusoid, Recording
 
-sine = Sinusoid(3, 44100, 440.00)
-sine.single_note_id(1)
-rec = Recording('audio samples/Piano Scale.wav', True)
+# debugging /audio samples data recordings, kinda corrupt?
+rec = Recording('audio samples/15000Hz.wav', True)
 print(rec)
-
-# rec.dynamic_ft(2048, 'sample', True, False, True, True, 'Piano Scale', 22050)
-rec.plot_ft()
-
-# self, start=0, stop=-1, format='sample'
-# if stop == -1:
-#     stop = len(self)
-# if format == 'second':
-#     start = start * self.sample_rate
-#     stop = stop * self.sample_rate
+rec.dynamic_ft(rewrite=True,save_sample='15000Hz')
