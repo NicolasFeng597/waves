@@ -202,16 +202,17 @@ class wavebuilder:
     #                   '-pix_fmt: yuv420p',
     #                   f'audio samples data/{save_sample}'])
     else: #files are saved in the 'audio samples data/{save_sample}
+      asdf = 'C:\\Users\\Administrator\\Desktop\\Coding\\Visual Studio\\waves\\audio samples\\15000Hz.wav'
       subprocess.run(['ffmpeg',
                       '-y',
                       '-r', f'{self.sample_rate / window_size}',
                       '-f', 'image2',
                       '-s', f'{Image.open(f"audio samples data/{save_sample}/images/image0.png").size[0]}x{Image.open(f"audio samples data/{save_sample}/images/image0.png").size[1]}',
                       "-i", f"audio samples data/{save_sample}/images/image%01d.png",
-                      '-i', f'{"temp_images/temp_audio.wav" if self.type == "Sinusoid" else self.path}',
+                      '-i', f'{"temp_images/temp_audio.wav" if self.type == "Sinusoid" else asdf}',
                       '-c:v', 'libx264',
                       '-pix_fmt', 'yuv420p',
-                      f'audio samples data/{save_sample}'])
+                      f'audio samples data/{save_sample}/{save_sample}.mp4'])
 
       
     #destroy temp files
