@@ -1,6 +1,10 @@
 #most recent change: added 22050 limit to dynamic_ft
 #inspiration taken from: https://github.com/jeffheaton/present/blob/master/youtube/video/fft-frequency.ipynb
 
+#currently: updating audio sample recordings
+
+
+
 from formats import Sinusoid, Recording
 
 # debugging /audio samples data recordings, kinda corrupt?
