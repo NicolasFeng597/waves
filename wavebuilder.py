@@ -67,7 +67,7 @@ class wavebuilder:
     plt.show()
 
   #calculates right fourier transform
-  def _fourier_transform(self, start=0, stop=-1, format='sample'): #sample count is preferably 2^x (1024, 2048, etc.)
+  def _fourier_transform(self, start=0, stop=-1, format='sample', normalize=True): #sample count is preferably 2^x (1024, 2048, etc.)
     if stop == -1 and format == 'sample':
       stop = len(self)
     if stop == -1 and format == 'second':
@@ -78,8 +78,11 @@ class wavebuilder:
 
     yf = rfft(self.value[1][start:stop])
     xf = rfftfreq(stop - start, 1 / self.sample_rate)
+
+    if normalize: #times 1/n
+      yf /= stop - start
     return [xf, np.abs(yf)]
-    
+
   #plots fourier transform
   def plot_ft(self, start=0, stop=-1, format='sample'):
     data = self._fourier_transform(start, stop, format)
@@ -257,8 +260,10 @@ class wavebuilder:
     notes = dict(zip(note_names, asdf))
     
     print(len(ft[0]))
-    ft[0] = ft[0][:5000]
-    ft[1] = ft[1][:5000]
+    ft[0] = ft[0][:round(5000*1024/self.sample_rate)]
+    ft[1] = ft[1][:round(5000*1024/self.sample_rate)]
+    
+    #find peaks
     peaks, _ = find_peaks(ft[1])
     bucket_size = self.sample_rate / 1024
     print(peaks)
