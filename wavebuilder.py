@@ -13,6 +13,7 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 from moviepy.editor import VideoFileClip, AudioFileClip
 import ffmpeg
 import subprocess
+from scipy.signal import find_peaks
 
 #parent class: WaveBuilder - you can choose to generate waves/import from there in subclasses
 class wavebuilder:
@@ -66,7 +67,7 @@ class wavebuilder:
     plt.show()
 
   #calculates right fourier transform
-  def __fourier_transform(self, start=0, stop=-1, format='sample'): #sample count is preferably 2^x (1024, 2048, etc.)
+  def _fourier_transform(self, start=0, stop=-1, format='sample'): #sample count is preferably 2^x (1024, 2048, etc.)
     if stop == -1 and format == 'sample':
       stop = len(self)
     if stop == -1 and format == 'second':
@@ -81,7 +82,7 @@ class wavebuilder:
     
   #plots fourier transform
   def plot_ft(self, start=0, stop=-1, format='sample'):
-    data = self.__fourier_transform(start, stop, format)
+    data = self._fourier_transform(start, stop, format)
     plt.plot(data[0], data[1])
     plt.show()
   
@@ -115,7 +116,7 @@ class wavebuilder:
     transforms = []
     max_value = -1
     for i in range(ceil(len(self) / window_size)):
-      fourier = self.__fourier_transform(start=window_size*i, stop=min((i + 1) * window_size, len(self)))
+      fourier = self._fourier_transform(start=window_size*i, stop=min((i + 1) * window_size, len(self)))
       transforms.append([i[:limit] for i in fourier])
       max_value = max(np.max(transforms[i][1]), max_value)
     
@@ -144,7 +145,7 @@ class wavebuilder:
     if rewrite:
       for i in range(len(transforms)):
         if show_progress and i % 50 == 0:
-          print(f"WaveBuilder - Writing image {i} out of {len(transforms)}")
+          print(f"(Waves) Class WaveBuilder, Function dynamic_ft(): Writing image {i} out of {len(transforms)}")
         plt.ylim(0, 1)
         plt.plot(transforms[i][0], transforms[i][1], color='blue')
         plt.text(0.5, 1.01, f'time: {round(i * window_size / self.sample_rate, 2)}s', horizontalalignment='center', verticalalignment='bottom', transform=ax.transAxes)
@@ -160,7 +161,7 @@ class wavebuilder:
           current_image.save(f'audio samples data/{save_sample}/images/image{i}.png')
         current_image.close()
         
-      print("WaveBuilder - Finished writing images")
+      print("Waves) Class WaveBuilder, Function dynamic_ft(): Finished writing images")
     
     #video preview
     if show_preview:
@@ -190,80 +191,28 @@ class wavebuilder:
                       '-c:v libx264',
                       '-pix_fmt: yuv420p',
                       'Current Video.mp4'])
-    # else: #files are saved in the 'audio samples data/{save_sample}
-    #   subprocess.run(['ffmpeg',
-    #                   '-y',
-    #                   f'-r {self.sample_rate / window_size}',
-    #                   '-f image2',
-    #                   f's {Image.open(f"audio samples data/{save_sample}/images/image0.png").size[0]}x{Image.open(f"audio samples data/{save_sample}/images/image0.png").size[1]}',
-    #                   f"-i audio samples data/{save_sample}/images/image%01d.png"
-    #                   f'-i {"temp_images/temp_audio.wav" if self.type == "Sinusoid" else self.path}',
-    #                   '-c:v libx264',
-    #                   '-pix_fmt: yuv420p',
-    #                   f'audio samples data/{save_sample}'])
-    else: #files are saved in the 'audio samples data/{save_sample}
-      asdf = 'C:\\Users\\Administrator\\Desktop\\Coding\\Visual Studio\\waves\\audio samples\\15000Hz.wav'
+    else:
+      print("asdf " + str(self.path))
       subprocess.run(['ffmpeg',
                       '-y',
                       '-r', f'{self.sample_rate / window_size}',
                       '-f', 'image2',
+                      '-thread_queue_size', '512',
                       '-s', f'{Image.open(f"audio samples data/{save_sample}/images/image0.png").size[0]}x{Image.open(f"audio samples data/{save_sample}/images/image0.png").size[1]}',
                       "-i", f"audio samples data/{save_sample}/images/image%01d.png",
-                      '-i', f'{"temp_images/temp_audio.wav" if self.type == "Sinusoid" else asdf}',
+                      '-i', f'{"temp_images/temp_audio.wav" if self.type == "Sinusoid" else self.path}',
+                      '-channel_layout', 'mono',
+                      '-ac', '1', #only mono audio supported
                       '-c:v', 'libx264',
                       '-pix_fmt', 'yuv420p',
+                      '-b:v', '150k',
                       f'audio samples data/{save_sample}/{save_sample}.mp4'])
 
-      
     #destroy temp files
     if save_sample is None and destroy_temp:
       for i in range(len(transforms)):
         os.remove(f'temp_images/image{i}.png')
       os.remove("temp_images/temp_video.mp4")
-      
-      
-    #building video
-    # if save_sample is None:
-    #   video = cv.VideoWriter('temp_images/temp_video.mp4', cv.VideoWriter_fourcc(*'mp4v'), self.sample_rate / window_size,
-    #                           Image.open('temp_images/image0.png').size)
-    # else:
-    #   video = cv.VideoWriter(f'audio samples data/{save_sample}/{save_sample}.mp4', cv.VideoWriter_fourcc(*'mp4v'), self.sample_rate / window_size,
-    #                           Image.open(f'audio samples data/{save_sample}/images/image0.png').size)
-    # if show_progress:
-    #   print("WaveBuilder - Building video")
-    # if save_sample is None:
-    #   for i in range(len(transforms)):
-    #     video.write(cv.imread(f'temp_images/image{i}.png'))
-    # else:
-    #   for i in range(len(transforms)):
-    #     video.write(cv.imread(f'audio samples data/{save_sample}/images/image{i}.png'))
-      
-    # video.release()
-    
-    # if save_sample is None:
-    #   video_clip = VideoFileClip('temp_images/temp_video.mp4')
-    #   if self.type == "Sinusoid":
-    #     wavio.write('temp_images/temp_audio.wav', self.value[1], self.sample_rate, sampwidth=2)
-    #     audio_clip = AudioFileClip('temp_images/temp_audio.wav')
-    #   else:
-    #     audio_clip = AudioFileClip(self.path)
-      
-    #   video_clip = video_clip.set_audio(audio_clip)
-    #   video_clip.write_videofile('Current Video.mp4')
-    # else: #samples are all .wav
-    #   video_clip = VideoFileClip(f'audio samples data/{save_sample}/{save_sample}.mp4')
-    #   audio_clip = AudioFileClip(f'audio samples/{save_sample}.wav')
-    #   video_clip = video_clip.set_audio(audio_clip)
-    #   video_clip.write_videofile(f'audio samples data/{save_sample}/{save_sample}.mp4')
-    #   # video_clip.write_videofile('audio samples data/test.mp4')
-    # video_clip.close()
-    # audio_clip.close()
-      
-    #destroy temp files
-    # if save_sample is None and destroy_temp:
-    #   for i in range(len(transforms)):
-    #     os.remove(f'temp_images/image{i}.png')
-    #   os.remove("temp_images/temp_video.mp4")
 
   '''java
   \<obsidian pseudo code\>
@@ -288,6 +237,7 @@ class wavebuilder:
     harmonics<notes<current_harmonic_Hz>, [bucket[current_harmonic_Hz], wave.value[current_bucket]>
   '''
 
+  
   #finds the note's haromics and magnitudes
   def single_note_id(self, ft): #given a fourier transfer of a single note, return: ("note name + octave", dict(frequencies of harmonics and fundamental, magnitudes of each harmonic))
     np.set_printoptions(suppress=True) #suppress scientific notation
@@ -306,5 +256,12 @@ class wavebuilder:
     
     notes = dict(zip(note_names, asdf))
     
-    
-    
+    print(len(ft[0]))
+    ft[0] = ft[0][:5000]
+    ft[1] = ft[1][:5000]
+    peaks, _ = find_peaks(ft[1])
+    bucket_size = self.sample_rate / 1024
+    print(peaks)
+    plt.plot(ft[0], ft[1])
+    plt.plot(peaks * bucket_size, [ft[1][i] for i in peaks], 'rx')
+    plt.show()

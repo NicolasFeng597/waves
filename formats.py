@@ -13,7 +13,7 @@ class Sinusoid(wavebuilder): #periodic
       times = np.linspace(0, time, sample_rate * time, endpoint=False)
       self.value = [times, np.sin(times * frequency * 2 * np.pi)] #converts frequency values into ascending rads before taking the sine
       
-      print("Sinusoid finished initialization")      
+      print("(Waves) Class Sinusoid: Initialization finished")      
     def __str__(self):
       return 'Time: ' + str(self.time) + ', Sample Rate: ' + str(self.sample_rate) + ', Frequency(s): ' + str(self.frequency)
     
@@ -30,13 +30,13 @@ class Recording(wavebuilder): #non-periodic
     self.normalize = normalize
     if data[1].ndim > 1:
       data[1] = np.array(data[1])[:, 0]
-      print("Recording: Multi-channel audio isn't supported - first channel will be used")
+      print("(Waves) Class Recording: Multi-channel audio isn't supported -- first channel will be used")
     self.value = [np.linspace(0, self.time, len(data[1]), endpoint=False), data[1]]
     
     if normalize:
       self.value[1] = self.value[1] / np.max(self.value[1])
       
-    print("Recording finished initialization")
+    print("(Waves) Class Recording: Initialization finished")
         
   def __str__(self):
     return 'Time: ' + str(self.time) + ', Sample Rate: ' + str(self.sample_rate) + ', Path: ' + str(self.path) + ', Normalized: ' + str(self.normalize)
