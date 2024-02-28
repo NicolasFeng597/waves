@@ -17,6 +17,20 @@ from scipy.signal import find_peaks
 
 #parent class: WaveBuilder - you can choose to generate waves/import from there in subclasses
 class wavebuilder:
+  #calculating _NOTES
+  _a = np.append(
+      np.flip(np.array([round(440/(1.0594631**i), 7) for i in range(1, 58)]), 0),
+      [round(440*(1.0594631**i), 7) for i in range(68)]) #list of all note frequencies before 22100hz
+    
+  _b = [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+          ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']]
+  _c = []
+  for i in range(11):
+    for j in range(12):
+      _c.append(_b[1][j] + str(_b[0][i]))
+  _c = _c[:127] #same number of notes as frequencies
+    
+  _NOTES = dict(zip(_c, _a))
   #combines wave objects
   def mix(self, *waves):
     for i in waves:
@@ -67,7 +81,7 @@ class wavebuilder:
     plt.show()
 
   #calculates right fourier transform
-  def _fourier_transform(self, start=0, stop=-1, format='sample', normalize=True): #sample count is preferably 2^x (1024, 2048, etc.)
+  def _fourier_transform(self, start=0, stop=-1, format='sample'): #sample count is preferably 2^x (1024, 2048, etc.)
     if stop == -1 and format == 'sample':
       stop = len(self)
     if stop == -1 and format == 'second':
@@ -79,8 +93,7 @@ class wavebuilder:
     yf = rfft(self.value[1][start:stop])
     xf = rfftfreq(stop - start, 1 / self.sample_rate)
 
-    if normalize: #times 1/n
-      yf /= stop - start
+    yf /= stop - start #normalizing
     return [xf, np.abs(yf)]
 
   #plots fourier transform
@@ -123,9 +136,9 @@ class wavebuilder:
       transforms.append([i[:limit] for i in fourier])
       max_value = max(np.max(transforms[i][1]), max_value)
     
-    #normalizing
-    for i in range(len(transforms)):
-      transforms[i][1] /= max_value
+    #normalizing (commented out since we're already normalizing in _fourier_transform)
+    # for i in range(len(transforms)):
+    #   transforms[i][1] /= max_value
 
     #adding dir and overriding existing images (if rewrite = True)
     try:
@@ -240,33 +253,20 @@ class wavebuilder:
     harmonics<notes<current_harmonic_Hz>, [bucket[current_harmonic_Hz], wave.value[current_bucket]>
   '''
 
-  
-  #finds the note's haromics and magnitudes
-  def single_note_id(self, ft): #given a fourier transfer of a single note, return: ("note name + octave", dict(frequencies of harmonics and fundamental, magnitudes of each harmonic))
-    np.set_printoptions(suppress=True) #suppress scientific notation
+  def _single_note_id(self, ft):
+    """
+    Generate a dict of note name and octave + frequency
+    """
     
-    asdf = np.append(
-      np.flip(np.array([round(440/(1.0594631**i), 7) for i in range(1, 58)]), 0),
-      [round(440*(1.0594631**i), 7) for i in range(68)]) #list of all note frequencies before 22100hz
-    
-    temp = [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-           ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']]
-    note_names = []
-    for i in range(11):
-      for j in range(12):
-        note_names.append(temp[1][j] + str(temp[0][i]))
-    note_names = note_names[:127] #same number of notes as frequencies
-    
-    notes = dict(zip(note_names, asdf))
-    
-    print(len(ft[0]))
+    # only up to 5000 hz (5000 * window size/sample rate) (put window size into params)
     ft[0] = ft[0][:round(5000*1024/self.sample_rate)]
     ft[1] = ft[1][:round(5000*1024/self.sample_rate)]
-    
+
     #find peaks
-    peaks, _ = find_peaks(ft[1])
-    bucket_size = self.sample_rate / 1024
-    print(peaks)
+    bucket, _ = find_peaks(ft[1]) #the bucket where the peak was found
+    bucket_size = self.sample_rate / 1024 #(window size really)
+    peaks = dict(zip(bucket * bucket_size, [ft[1][i] for i in bucket])) #dict of peaks <hz, magnitude>
     plt.plot(ft[0], ft[1])
-    plt.plot(peaks * bucket_size, [ft[1][i] for i in peaks], 'rx')
+    plt.plot(peaks.keys(), peaks.values(), 'rx')
     plt.show()
+    
