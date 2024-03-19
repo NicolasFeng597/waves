@@ -14,23 +14,24 @@ from moviepy.editor import VideoFileClip, AudioFileClip
 import ffmpeg
 import subprocess
 from scipy.signal import find_peaks
+from scipy.signal import peak_prominences
+from math import log2
 
 #parent class: WaveBuilder - you can choose to generate waves/import from there in subclasses
 class wavebuilder:
-  #calculating _NOTES
-  _a = np.append(
-      np.flip(np.array([round(440/(1.0594631**i), 7) for i in range(1, 58)]), 0),
-      [round(440*(1.0594631**i), 7) for i in range(68)]) #list of all note frequencies before 22100hz
-    
-  _b = [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+  _ = [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
           ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']]
-  _c = []
+  
+  _NOTE_NAMES = [] #list of all note names, like 'C0' and 'A4'
   for i in range(11):
     for j in range(12):
-      _c.append(_b[1][j] + str(_b[0][i]))
-  _c = _c[:127] #same number of notes as frequencies
-    
-  _NOTES = dict(zip(_c, _a))
+      _NOTE_NAMES.append(_[1][j] + str(_[0][i]))
+  _NOTE_NAMES = _NOTE_NAMES[:127] #same number of notes as frequencies
+
+  _FREQUENCIES = np.append(
+      np.flip(np.array([round(440/(1.0594631**i), 7) for i in range(1, 58)]), 0),
+      [round(440*(1.0594631**i), 7) for i in range(68)]) #list of all note frequencies before 22100hz
+
   #combines wave objects
   def mix(self, *waves):
     for i in waves:
@@ -157,20 +158,24 @@ class wavebuilder:
             os.remove('audio samples data/' + save_sample + '/images/' + file)
     
     #plotting and saving images
-    fig, ax = plt.subplots()
+    # V this bottom fig/ax is for the regular graph
+    # fig, ax = plt.subplots()
     if rewrite:
       for i in range(len(transforms)):
         if show_progress and i % 50 == 0:
           print(f"(Waves) Class WaveBuilder, Function dynamic_ft(): Writing image {i} out of {len(transforms)}")
-        plt.ylim(0, 1)
-        plt.plot(transforms[i][0], transforms[i][1], color='blue')
+        # this is the regular graph, currently testing the note id one
+        # plt.ylim(0, 1)
+        # plt.plot(transforms[i][0], transforms[i][1], color='blue')
+
+        fig, ax = self._single_note_id([transforms[i][0], transforms[i][1]])
         plt.text(0.5, 1.01, f'time: {round(i * window_size / self.sample_rate, 2)}s', horizontalalignment='center', verticalalignment='bottom', transform=ax.transAxes)
-        
+
         current_image = BytesIO()
         canvas = FigureCanvasAgg(fig)
         canvas.print_png(current_image)
         current_image = Image.open(current_image)
-        fig.clear()
+        # fig.clear()
         if save_sample is None:
           current_image.save(f'temp_images/image{i}.png')
         else:
@@ -230,43 +235,71 @@ class wavebuilder:
         os.remove(f'temp_images/image{i}.png')
       os.remove("temp_images/temp_video.mp4")
 
-  '''java
-  \<obsidian pseudo code\>
-  #buckets[i] is not real, instead use rfftfreq
-  **Threshold/note ID:**
-  Map<str (note + octave), float Hz> notes
-  Map<str note_name, float magnitude> note_values
-  const float threshold #(determine through testing)
-
-  i for all buckets:
-    note_values<closest note to ith bucket, magnitude = bucket>
-    if (ith magnitude) > threshold: display the note
-  (func returns fundamental for use in harmonic series detection, as follows)
-
-  **Harmonic Series detection**:
-  str fundamental_note_name, int fundamental_bucket
-  Map<str harmonic_name, [int harmonic_bucket, float harmonic_magnitude]> harmonics
-
-  int current_harmonic = 2; #first harmonic is fundamental
-  while Hz <= 20000:
-    int current_harmonic_Hz = ith_harmonic_Hz_func(current_harmonic)
-    harmonics<notes<current_harmonic_Hz>, [bucket[current_harmonic_Hz], wave.value[current_bucket]>
-  '''
-
-  def _single_note_id(self, ft):
-    """
-    Generate a dict of note name and octave + frequency
-    """
+  def _single_note_id(self, ft, format='sample', window_size=2048, limit=22050):
+    if format == 'second':
+      window_size *= self.sample_rate
     
+    #converts limit to index of frequency bin with Hz 'limit'
+    limit = round(limit * window_size / self.sample_rate)
+
     # only up to 5000 hz (5000 * window size/sample rate) (put window size into params)
-    ft[0] = ft[0][:round(5000*1024/self.sample_rate)]
-    ft[1] = ft[1][:round(5000*1024/self.sample_rate)]
-
-    #find peaks
-    bucket, _ = find_peaks(ft[1]) #the bucket where the peak was found
-    bucket_size = self.sample_rate / 1024 #(window size really)
-    peaks = dict(zip(bucket * bucket_size, [ft[1][i] for i in bucket])) #dict of peaks <hz, magnitude>
-    plt.plot(ft[0], ft[1])
-    plt.plot(peaks.keys(), peaks.values(), 'rx')
-    plt.show()
+    ft[0] = ft[0][:limit]
+    ft[1] = ft[1][:limit]
     
+    #find peaks
+    bucket, _ = find_peaks(ft[1], prominence=0.001) #the bucket where the peak was found
+
+    peak_hz = bucket * self.sample_rate / window_size
+    peak_magnitudes = [ft[1][i] for i in bucket]
+
+    #naively find hz of fundamental
+    # fundamental = peak_hz[peak_magnitudes.index(max(peak_magnitudes))] #note: this doesn't work if there's no peaks
+    # print('all peak hz: ' + str(peak_hz))
+    # print('fundamental hz: ' + str(fundamental))
+
+    #find peak prominence
+    # prominence, left_bases, right_bases = peak_prominences(x=ft[1], peaks=bucket)
+    # print('prominences: ' + str(prominence))
+    # print('bases: ' + str(left_bases) + ' ' + str(right_bases))
+    # print('magnitudes: ' + str(peak_magnitudes))
+
+    #plot
+    fig, ax = plt.subplots()
+    fig.set_figheight(4.8)
+    fig.set_figwidth(14)
+    plt.ylim(0, 1)
+    plt.xlabel('Frequency (Hz)')
+    plt.ylabel('Absolute Amplitude')
+    plt.plot(ft[0], ft[1])
+    plt.plot(peak_hz, peak_magnitudes, 'rx')
+    for i in range(len(peak_hz)):
+      plt.text(peak_hz[i], peak_magnitudes[i] + 0.01, self._hz_to_note(peak_hz[i])[0] + '\n' + str(round(self._hz_to_note(peak_hz[i])[1], 1)) + '¢', ha='center') #note names and cents
+      plt.axvline(peak_hz[i], 0, peak_magnitudes[i] / plt.ylim()[1], color='limegreen', linestyle='dotted') #lines
+      plt.text(peak_hz[i], 0, f'{peak_hz[i]:.2f}', color='limegreen', ha='center', va='top', transform=plt.gca().transAxes) #x-axis label
+    return fig, ax
+
+  def _hz_to_note(self, hz):
+    """
+    Returns the closest note and the cents difference for a given frequency in hertz.
+
+    Parameters:
+    hz (float): The frequency in hertz.
+
+    Returns:
+    tuple: A tuple containing the closest note and the cents difference.
+    """
+
+    #self._FREQUENCIES is between 16.3515929 hz and 21096.1711678 hz and has 125 values
+    if hz < 16.3515929:
+      raise ValueError(f'Hz given ({hz}) is lower than minimum note C0 (Hz = 16.3515929)')
+    if hz > 21096.1711678:
+      raise ValueError(f'Hz given ({hz}) is higher than maximum note E10 (Hz = 21096.1711678)')
+    if round(hz, 7) == 21096.1711678: #edge case
+      return ('E10', 0)
+
+    for i in range(125):
+      if hz >= self._FREQUENCIES[i] and hz <= self._FREQUENCIES[i + 1]:
+        if abs(hz - self._FREQUENCIES[i]) > abs(hz - self._FREQUENCIES[i + 1]):
+          return (self._NOTE_NAMES[i + 1], 1200 * log2(hz / self._FREQUENCIES[i + 1]))
+        else:
+          return (self._NOTE_NAMES[i], 1200 * log2(hz / self._FREQUENCIES[i]))

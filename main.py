@@ -3,11 +3,14 @@
 #most recent changes: 
 #switched normalizing from dynamic_ft() to _fourier_transform()
 #made the notes dict a static final
+#switched notes dict to _NOTE_NAMES and _FREQUENCIES
+#finished fluff for _single_note_id()
+#implemented note identification; using _single_note_id() for video frames
 
-#currently: implementing note identification
+#currently:
 
 
 from formats import Sinusoid, Recording
 rec = Recording('audio samples/Piano Scale.wav', True)
 print(rec)
-rec._single_note_id(rec._fourier_transform(44100*2, 44100*2 + 1024)) #frame at 2 sec
+rec.dynamic_ft(show_progress=True, save_sample='Piano Scale -- Notes Identified', rewrite=True, limit=5000)
