@@ -11,6 +11,6 @@
 
 
 from formats import Sinusoid, Recording
-rec = Recording('audio samples/Piano Scale.wav', True)
+rec = Recording('audio samples/A440 Piano Note.wav', True)
 print(rec)
-rec.dynamic_ft(show_progress=True, save_sample='Piano Scale -- Notes Identified', rewrite=True, limit=5000)
+rec.dynamic_ft(show_progress=True, save_sample='A440 Piano Note -- Notes Identified', rewrite=True, limit=5000)
