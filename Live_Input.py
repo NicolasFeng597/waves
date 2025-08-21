@@ -39,3 +39,5 @@ class LiveInput:
 
     def get_audio(self):
         pass
+
+# TODO: need gui to display live audio data, gonna make a website
