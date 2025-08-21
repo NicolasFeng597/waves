@@ -17,55 +17,6 @@ from scipy.signal import find_peaks
 from scipy.signal import peak_prominences
 from math import log2
 
-#parent class: WaveBuilder - you can choose to generate waves/import from there in subclasses
-class wavebuilder:
-  _ = [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-          ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']]
-  
-  _NOTE_NAMES = [] #list of all note names, like 'C0' and 'A4'
-  for i in range(11):
-    for j in range(12):
-      _NOTE_NAMES.append(_[1][j] + str(_[0][i]))
-  _NOTE_NAMES = _NOTE_NAMES[:127] #same number of notes as frequencies
-
-  _FREQUENCIES = np.append(
-      np.flip(np.array([round(440/(1.0594631**i), 7) for i in range(1, 58)]), 0),
-      [round(440*(1.0594631**i), 7) for i in range(68)]) #list of all note frequencies before 22100hz
-
-  #combines wave objects
-  def mix(self, *waves):
-    for i in waves:
-      if not issubclass(i.__class__, wavebuilder):
-        raise ValueError('must inherit wavebuilder')
-      if i.__class__ != self.__class__:
-        raise NotImplementedError('Sinusoid and Recording addition not yet implemented')
-      
-    waves = list(waves)
-    waves.insert(0, self)
-    
-    maxtime_index = 0
-    for current_index, i in enumerate(waves):
-      if i.sample_rate != self.sample_rate:
-        raise ValueError('Sample rates don\'t match')
-      if not issubclass(i.__class__, wavebuilder):
-        raise ValueError('waves must inherit wavebuilder')
-      
-      if i.time > waves[maxtime_index].time:
-        maxtime_index = current_index
-    
-    self.value[0] = waves[maxtime_index].value[0]
-    
-    for current_index, i in enumerate(waves):
-      zeros_to_pad = int(len(waves[maxtime_index].value[1]) - len(i.value[1]))
-      waves[current_index].value[1] = np.append(i.value[1], [0 for _ in range(zeros_to_pad)])
-      
-    self.value[1] = np.asarray([i.value[1] for i in waves]).sum(axis=0)
-    self.time = waves[maxtime_index].time
-    if self.frequency is not None: #Sinusoid
-      self.frequency = [i.frequency for i in waves]
-    elif self.path is not None: #Recording
-      self.path = [i.path for i in waves]
-  
   #plots waves
   def plot(self, start=0, stop=-1, format='sample'):
     if stop == -1 and format == 'sample':
